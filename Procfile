@@ -1,1 +1,1 @@
-web: bin/hubot -a flowdock
+hubot: bin/hubot -a flowdock
