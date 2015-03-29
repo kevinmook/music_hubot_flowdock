@@ -105,7 +105,7 @@ tellSpotify = (msg, command, method, params, callback) ->
   if params_array.length > 0
     params_array_str = params_array.join("&")
   
-  url = "https://music-remote.herokuapp.com/api/hubot/v1/#{music_api_key}/#{command}"
+  url = "https://music-remote.herokuapp.com/api/v1/#{music_api_key}/#{command}"
   remote_call = null
   switch method
     when 'GET'
