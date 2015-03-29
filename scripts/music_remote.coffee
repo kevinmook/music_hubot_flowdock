@@ -119,15 +119,18 @@ tellSpotify = (msg, command, method, params, callback) ->
       if err
         msg.send "Error communicating with the music client: #{err}"
         return
-      content = JSON.parse(body)
-      if content?
-        if content['success']
-          callback(content['status'])
-        else if content['error']
-          msg.send content['error']
+      try
+        content = JSON.parse(body)
+        if content?
+          if content['success']
+            callback(content['status'])
+          else if content['error']
+            msg.send content['error']
+          else
+            msg.send "Error communicating with the music client"
         else
-          msg.send "Error communicating with the music client"
-      else
+          msg.send "Invalid response"
+      catch e
         msg.send "Invalid response"
   else
     msg.send "Invalid request"
