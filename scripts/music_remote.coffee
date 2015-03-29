@@ -26,6 +26,8 @@
 #   hubot what's the volume?      - Gets the current volume
 #   hubot set volume <0 to 100>   - Sets the volume to the given percentage
 #   hubot what's playing?         - Lists what's currently being played
+#   hubot list clients            - Lists the music clients
+#   hubot select client [id]      - Selects the active music client
 #
 # Author:
 #   Kevin Mook (@kevinmook)
@@ -34,8 +36,9 @@ module.exports = (robot) ->
 
   robot.respond /\s*play (.*)/i, (msg) ->
     tellSpotify msg, 'play', 'POST', {uri: msg.match[1]}, (response) ->
-      track = response['track']
-      artist = response['artist']
+      status = response['status']
+      track = status['track']
+      artist = status['artist']
       msg.send "Now playing '#{track}' by '#{artist}.'"
   
   robot.respond /\s*(?:pause|stop)/i, (msg) ->
@@ -72,21 +75,54 @@ module.exports = (robot) ->
   
   robot.respond /\s*set (?:the )?volume (?:to )?([0-9]+)/i, (msg) ->
     tellSpotify msg, "volume", 'POST', {volume: msg.match[1]}, (response) ->
-      volume = response['volume']
+      volume = response['status']['volume']
       msg.send "The volume has been set to #{volume}."
   
   robot.respond /\s*what.?s (?:the )?volume\??/i, (msg) ->
     tellSpotify msg, "status", 'GET', {}, (response) ->
-      volume = response['volume']
+      volume = response['status']['volume']
       msg.send "The volume is at #{volume}."
   
   robot.respond /\s*what.?s playing\??/i, (msg) ->
     tellSpotify msg, "status", 'GET', {}, (response) ->
-      track = response['track']
-      artist = response['artist']
-      uri = response['uri']
+      status = response['status']
+      track = status['track']
+      artist = status['artist']
+      uri = status['uri']
       url = uri.replace(/:/g, "/").replace("spotify/", "http://open.spotify.com/")
       msg.send "#{url}"
+  
+  robot.respond /\s*list clients/i, (msg) ->
+    tellSpotify msg, "clients", 'GET', {}, (response) ->
+      clients = []
+      
+      counter = 1
+      for client in response['clients']
+        hostname = client['hostname'] || "unknown"
+        client_message = "#{counter}: #{hostname}"
+        client_message += " (active)" if client['active']
+        clients.push(client_message)
+        counter += 1
+      
+      if clients.length > 0
+        msg.send "Clients: #{clients.join(", ")}"
+        if clients.length > 1
+          msg.send "You may select a different active client with 'select client [number]'"
+      else
+        msg.send "No known clients"
+  
+  robot.respond /\s*select client ([0-9]+)/i, (msg) ->
+    tellSpotify msg, "clients", 'GET', {}, (response) ->
+      client_id = msg.match[1] - 1
+      selected_client = response['clients'][client_id]
+      if selected_client?
+        hostname = selected_client['hostname'] || "unknown"
+        client_name = selected_client['name']
+        tellSpotify msg, "active_client", 'POST', {client_name: client_name}, (response) ->
+          msg.send "Active client set to #{hostname}"
+      else
+        msg.send "Unknown client. Please get the client id with 'list clients'"
+
 
 tellSpotify = (msg, command, method, params, callback) ->
   music_api_key = process.env.HUBOT_MUSIC_API_KEY
@@ -121,16 +157,17 @@ tellSpotify = (msg, command, method, params, callback) ->
         return
       try
         content = JSON.parse(body)
+        
         if content?
           if content['success']
-            callback(content['status'])
+            callback(content)
           else if content['error']
             msg.send content['error']
           else
             msg.send "Error communicating with the music client"
         else
           msg.send "Invalid response"
-      catch e
+      catch error
         msg.send "Invalid response"
   else
     msg.send "Invalid request"
