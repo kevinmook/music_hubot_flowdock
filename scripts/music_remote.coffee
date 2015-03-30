@@ -35,56 +35,56 @@
 module.exports = (robot) ->
 
   robot.respond /\s*play (.*)/i, (msg) ->
-    tellSpotify msg, 'play', 'POST', {uri: msg.match[1]}, (response) ->
+    tellMusicRemote robot, msg, 'play', 'POST', {uri: msg.match[1]}, (response) ->
       status = response['status']
       track = status['track']
       artist = status['artist']
       msg.send "Now playing '#{track}' by '#{artist}.'"
   
   robot.respond /\s*(?:pause|stop)/i, (msg) ->
-    tellSpotify msg, "pause", 'POST', {}, (response) ->
+    tellMusicRemote robot, msg, "pause", 'POST', {}, (response) ->
       msg.send "The music has been paused."
   
   robot.respond /\s*(?:unpause|resume|play)/i, (msg) ->
-    tellSpotify msg, "resume", 'POST', {}, (response) ->
+    tellMusicRemote robot, msg, "resume", 'POST', {}, (response) ->
       msg.send "The music has been resumed."
   
   robot.respond /\s*(?:skip|next)/i, (msg) ->
-    tellSpotify msg, "next", 'POST', {}, (response) ->
+    tellMusicRemote robot, msg, "next", 'POST', {}, (response) ->
       msg.send "The current song has been skipped."
   
   robot.respond /\s*(?:previous|back)/i, (msg) ->
-    tellSpotify msg, "previous", 'POST', {}, (response) ->
+    tellMusicRemote robot, msg, "previous", 'POST', {}, (response) ->
       msg.send "Going back to the previous song."
   
   robot.respond /\s*shuffle/i, (msg) ->
-    tellSpotify msg, "shuffle", 'POST', {shuffle: true}, (response) ->
+    tellMusicRemote robot, msg, "shuffle", 'POST', {shuffle: true}, (response) ->
       msg.send "The playlist will now be shuffled."
   
   robot.respond /\s*don.?t shuffle/i, (msg) ->
-    tellSpotify msg, "shuffle", 'POST', {shuffle: false}, (response) ->
+    tellMusicRemote robot, msg, "shuffle", 'POST', {shuffle: false}, (response) ->
       msg.send "The playlist will not be shuffled."
   
   robot.respond /\s*(?:loop|repeat)/i, (msg) ->
-    tellSpotify msg, "repeat", 'POST', {repeat: true}, (response) ->
+    tellMusicRemote robot, msg, "repeat", 'POST', {repeat: true}, (response) ->
       msg.send "The playlist will now be looped."
   
   robot.respond /\s*don.?t (?:loop|repeat)/i, (msg) ->
-    tellSpotify msg, "repeat", 'POST', {repeat: false}, (response) ->
+    tellMusicRemote robot, msg, "repeat", 'POST', {repeat: false}, (response) ->
       msg.send "The playlist will not be looped."
   
   robot.respond /\s*set (?:the )?volume (?:to )?([0-9]+)/i, (msg) ->
-    tellSpotify msg, "volume", 'POST', {volume: msg.match[1]}, (response) ->
+    tellMusicRemote robot, msg, "volume", 'POST', {volume: msg.match[1]}, (response) ->
       volume = response['status']['volume']
       msg.send "The volume has been set to #{volume}."
   
   robot.respond /\s*what.?s (?:the )?volume\??/i, (msg) ->
-    tellSpotify msg, "status", 'GET', {}, (response) ->
+    tellMusicRemote robot, msg, "status", 'GET', {}, (response) ->
       volume = response['status']['volume']
       msg.send "The volume is at #{volume}."
   
   robot.respond /\s*what.?s playing\??/i, (msg) ->
-    tellSpotify msg, "status", 'GET', {}, (response) ->
+    tellMusicRemote robot, msg, "status", 'GET', {}, (response) ->
       status = response['status']
       track = status['track']
       artist = status['artist']
@@ -93,7 +93,7 @@ module.exports = (robot) ->
       msg.send "#{url}"
   
   robot.respond /\s*list clients/i, (msg) ->
-    tellSpotify msg, "clients", 'GET', {}, (response) ->
+    tellMusicRemote robot, msg, "clients", 'GET', {}, (response) ->
       clients = []
       
       counter = 1
@@ -112,23 +112,33 @@ module.exports = (robot) ->
         msg.send "No known clients"
   
   robot.respond /\s*select client ([0-9]+)/i, (msg) ->
-    tellSpotify msg, "clients", 'GET', {}, (response) ->
+    tellMusicRemote robot, msg, "clients", 'GET', {}, (response) ->
       client_id = msg.match[1] - 1
       selected_client = response['clients'][client_id]
       if selected_client?
         hostname = selected_client['hostname'] || "unknown"
         client_name = selected_client['name']
-        tellSpotify msg, "active_client", 'POST', {client_name: client_name}, (response) ->
+        tellMusicRemote robot, msg, "active_client", 'POST', {client_name: client_name}, (response) ->
           msg.send "Active client set to #{hostname}"
       else
         msg.send "Unknown client. Please get the client id with 'list clients'"
 
 
-tellSpotify = (msg, command, method, params, callback) ->
+tellMusicRemote = (robot, msg, command, method, params, callback) ->
   music_api_key = process.env.HUBOT_MUSIC_API_KEY
   if !music_api_key
     msg.send "Music API key is not set, unable to continue"
     return
+  
+  version_check_url = "https://music-remote.s3.amazonaws.com/hubot/latest_version"
+  msg.http(version_check_url).get() (err, res, body) =>
+    if !err?
+      if body != "0.0.1"
+        last_warned_at = robot.brain.get('last_warned_at')
+        now = new Date()
+        if !last_warned_at? || (now - last_warned_at) >= 18 * 60 * 60 * 1000
+          robot.brain.set('last_warned_at', now)
+          msg.send "Warning: music chat library is out of date. Please update the script"
   
   params_array = []
   params_array_str = ""
