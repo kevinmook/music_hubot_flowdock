@@ -128,7 +128,7 @@ module.exports = (robot) ->
 tellMusicRemote = (robot, msg, command, method, params, callback) ->
   music_api_key = process.env.HUBOT_MUSIC_API_KEY
   if !music_api_key
-    msg.send "Music API key is not set, unable to continue"
+    msg.send "Music API key is not set, please set HUBOT_MUSIC_API_KEY"
     return
   
   version_check_url = "https://music-remote.s3.amazonaws.com/hubot/latest_version"
@@ -137,7 +137,7 @@ tellMusicRemote = (robot, msg, command, method, params, callback) ->
       if body != "0.0.1"
         last_warned_at = robot.brain.get('last_warned_at')
         now = new Date()
-        if !last_warned_at? || (now - last_warned_at) >= 18 * 60 * 60 * 1000
+        if !last_warned_at? || (now - last_warned_at) >= 15 * 60 * 1000
           robot.brain.set('last_warned_at', now)
           msg.send "Warning: music chat library is out of date. Please update the script"
   
