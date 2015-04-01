@@ -27,7 +27,7 @@
 #   hubot set volume <0 to 100>   - Sets the volume to the given percentage
 #   hubot what's playing?         - Lists what's currently being played
 #   hubot list clients            - Lists the music clients
-#   hubot select client [id]      - Selects the active music client
+#   hubot select client <id>      - Selects the active music client
 #
 # Author:
 #   Kevin Mook (@kevinmook)
